@@ -51,35 +51,42 @@ static void cb_status(mk_request_t *request, void *data)
     msgpack_pack_str(&mp_pck, 13);
     msgpack_pack_str_body(&mp_pck, "storage_layer", 13);
 
+    msgpack_pack_map(&mp_pck, 1);
+
+    msgpack_pack_str(&mp_pck, 6);
+    msgpack_pack_str_body(&mp_pck, "chunks", 6);
     msgpack_pack_map(&mp_pck, 3);
 
-    msgpack_pack_str(&mp_pck, 12);
-    msgpack_pack_str_body(&mp_pck, "total_chunks", 12);
-    msgpack_pack_int64(&mp_pck, storage_st.chunks_total);
+    // chunks - total
+    msgpack_pack_str(&mp_pck, 5);
+    msgpack_pack_str_body(&mp_pck, "total", 5);
+    msgpack_pack_int(&mp_pck, storage_st.chunks_total);
 
-    msgpack_pack_str(&mp_pck, 10);
-    msgpack_pack_str_body(&mp_pck, "mem_chunks", 10);
+    // chunks - mem
+    msgpack_pack_str(&mp_pck, 3);
+    msgpack_pack_str_body(&mp_pck, "mem", 3);
+    msgpack_pack_map(&mp_pck, 1);
+    // chunks - mem - total
+    msgpack_pack_str(&mp_pck, 5);
+    msgpack_pack_str_body(&mp_pck, "total", 5);
     msgpack_pack_int(&mp_pck, storage_st.chunks_mem);
 
-    msgpack_pack_str(&mp_pck, 9);
-    msgpack_pack_str_body(&mp_pck, "fs_chunks", 9);
-    msgpack_pack_map(&mp_pck, 2);
-
-    // TODO look at displaying total fs chunks
-
+    // chunks - fs
+    msgpack_pack_str(&mp_pck, 2);
+    msgpack_pack_str_body(&mp_pck, "fs", 2);
+    msgpack_pack_map(&mp_pck, 3);
+    // chunks - fs - total
+    msgpack_pack_str(&mp_pck, 5);
+    msgpack_pack_str_body(&mp_pck, "total", 5);
+    msgpack_pack_int(&mp_pck, storage_st.chunks_fs);
+    // chunks - fs - up
     msgpack_pack_str(&mp_pck, 2);
     msgpack_pack_str_body(&mp_pck, "up", 2);
     msgpack_pack_int(&mp_pck, storage_st.chunks_fs_up);
+    // chunks - fs - down
     msgpack_pack_str(&mp_pck, 4);
     msgpack_pack_str_body(&mp_pck, "down", 4);
     msgpack_pack_int(&mp_pck, storage_st.chunks_fs_down);
-
-    fprintf(stdout, "\n===== Storage Layer =====\n");
-    fprintf(stdout, "total chunks     : %i\n", storage_st.chunks_total);
-    fprintf(stdout, "├─ mem chunks    : %i\n", storage_st.chunks_mem);
-    fprintf(stdout, "└─ fs chunks     : %i\n", storage_st.chunks_fs);
-    fprintf(stdout, "   ├─ up         : %i\n", storage_st.chunks_fs_up);
-    fprintf(stdout, "   └─ down       : %i\n", storage_st.chunks_fs_down);
 
     /* Export to JSON */
     out_buf = flb_msgpack_raw_to_json_sds(mp_sbuf.data, mp_sbuf.size);
