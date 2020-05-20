@@ -4,6 +4,7 @@ set(src
   metrics.c
   plugins.c
   register.c
+  status.c
   )
 
 include_directories(${MONKEY_INCLUDE_DIR})
