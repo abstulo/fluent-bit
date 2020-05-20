@@ -22,71 +22,64 @@
 #include <fluent-bit/flb_pack.h>
 #include <fluent-bit/flb_http_server.h>
 #include <fluent-bit/flb_mem.h>
+#include <fluent-bit/flb_storage.h>
 
 #define FLB_UPTIME_ONEDAY  86400
 #define FLB_UPTIME_ONEHOUR  3600
 #define FLB_UPTIME_ONEMINUTE  60
-
-/* Append human-readable uptime */
-static void uptime_hr(time_t uptime, msgpack_packer *mp_pck)
-{
-    int len;
-    int days;
-    int hours;
-    int minutes;
-    int seconds;
-    long int upmind;
-    long int upminh;
-    char buf[256];
-
-    /* days */
-    days = uptime / FLB_UPTIME_ONEDAY;
-    upmind = uptime - (days * FLB_UPTIME_ONEDAY);
-
-    /* hours */
-    hours = upmind / FLB_UPTIME_ONEHOUR;
-    upminh = upmind - hours * FLB_UPTIME_ONEHOUR;
-
-    /* minutes */
-    minutes = upminh / FLB_UPTIME_ONEMINUTE;
-    seconds = upminh - minutes * FLB_UPTIME_ONEMINUTE;
-
-    len = snprintf(buf, sizeof(buf) - 1,
-                   "Fluent Bit has been running: "
-                   " %i day%s, %i hour%s, %i minute%s and %i second%s",
-                   days, (days > 1) ? "s" : "", hours,                  \
-                   (hours > 1) ? "s" : "", minutes,                     \
-                   (minutes > 1) ? "s" : "", seconds, \
-                   (seconds > 1) ? "s" : "");
-    msgpack_pack_str(mp_pck, 9);
-    msgpack_pack_str_body(mp_pck, "uptime_hr", 9);
-    msgpack_pack_str(mp_pck, len);
-    msgpack_pack_str_body(mp_pck, buf, len);
-}
 
 /* API: List all built-in plugins */
 static void cb_status(mk_request_t *request, void *data)
 {
     flb_sds_t out_buf;
     size_t out_size;
-    time_t uptime;
+
     msgpack_packer mp_pck;
     msgpack_sbuffer mp_sbuf;
+
     struct flb_hs *hs = data;
     struct flb_config *config = hs->config;
+    struct cio_stats storage_st;
+
+    cio_stats_get(config->cio, &storage_st);
 
     /* initialize buffers */
     msgpack_sbuffer_init(&mp_sbuf);
     msgpack_packer_init(&mp_pck, &mp_sbuf, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&mp_pck, 2);
+    msgpack_pack_map(&mp_pck, 1);
+    msgpack_pack_str(&mp_pck, 13);
+    msgpack_pack_str_body(&mp_pck, "storage_layer", 13);
+
+    msgpack_pack_map(&mp_pck, 3);
+
+    msgpack_pack_str(&mp_pck, 12);
+    msgpack_pack_str_body(&mp_pck, "total_chunks", 12);
+    msgpack_pack_int64(&mp_pck, storage_st.chunks_total);
+
     msgpack_pack_str(&mp_pck, 10);
-    msgpack_pack_str_body(&mp_pck, "uptime_sec", 10);
+    msgpack_pack_str_body(&mp_pck, "mem_chunks", 10);
+    msgpack_pack_int(&mp_pck, storage_st.chunks_mem);
 
-    uptime = time(NULL) - config->init_time;
-    msgpack_pack_uint64(&mp_pck, uptime);
+    msgpack_pack_str(&mp_pck, 9);
+    msgpack_pack_str_body(&mp_pck, "fs_chunks", 9);
+    msgpack_pack_map(&mp_pck, 2);
 
-    uptime_hr(uptime, &mp_pck);
+    // TODO look at displaying total fs chunks
+
+    msgpack_pack_str(&mp_pck, 2);
+    msgpack_pack_str_body(&mp_pck, "up", 2);
+    msgpack_pack_int(&mp_pck, storage_st.chunks_fs_up);
+    msgpack_pack_str(&mp_pck, 4);
+    msgpack_pack_str_body(&mp_pck, "down", 4);
+    msgpack_pack_int(&mp_pck, storage_st.chunks_fs_down);
+
+    fprintf(stdout, "\n===== Storage Layer =====\n");
+    fprintf(stdout, "total chunks     : %i\n", storage_st.chunks_total);
+    fprintf(stdout, "├─ mem chunks    : %i\n", storage_st.chunks_mem);
+    fprintf(stdout, "└─ fs chunks     : %i\n", storage_st.chunks_fs);
+    fprintf(stdout, "   ├─ up         : %i\n", storage_st.chunks_fs_up);
+    fprintf(stdout, "   └─ down       : %i\n", storage_st.chunks_fs_down);
 
     /* Export to JSON */
     out_buf = flb_msgpack_raw_to_json_sds(mp_sbuf.data, mp_sbuf.size);
